@@ -29,6 +29,6 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                 name: sample-file
-                working-directory: ./src
-                path: sample_file.txt
+                #working-directory: ./src
+                path: src/sample_file.txt
                 #path: ./output_files/sample_file.txt
