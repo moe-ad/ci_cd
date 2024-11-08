@@ -1,23 +1,25 @@
-name: hello-world
-on: push
-jobs:
-  hello-world-job:
-    name: Random action
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check original working directory
-        shell: bash
-        run: |
-          echo "$(pwd)"
-      - name: Create some random file
-        shell: bash
-        run: |
-          echo "random text." > randomtext.txt
-          echo "$(ls -lA)"
-      - name: Check out repository code
-        uses: actions/checkout@v4
-        run: |
-          echo "$(pwd)"
+# name: hello-world
+# on: push
+# jobs:
+#   hello-world-job:
+#     name: Random action
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Check original working directory
+#         shell: bash
+#         run: |
+#           echo "$(pwd)"
+#       - name: Create some random file
+#         shell: bash
+#         run: |
+#           echo "random text." > /tmp/randomtext.txt
+#           echo "$(pwd)"
+#       - name: Check out repository code
+#         uses: actions/checkout@v4
+#       - name: Show directory layout
+#         run: |
+#           echo "$(ls -lA /tmp)"
+#           echo "$(ls -lA /home/runner/work/ci_cd/ci_cd)"
 
 #    - name: Copy randomtext.txt into some location in repo
 #      shell: bash
@@ -47,3 +49,140 @@ jobs:
 #                 #working-directory: ./src
 #                 path: src/sample_file.txt
 #                 #path: ./output_files/sample_file.txt
+
+name: Update index.html in GH Pages and generate global sitemap
+
+on: push
+
+permissions: write-all
+
+jobs:
+
+  run-global-sitemap-script-and-update-gh-pages:
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Install Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Write script
+      shell: bash
+      run: |
+
+        cat > /tmp/catsitemap.py << "EOF"
+
+        import re
+        import xml.etree.ElementTree as ET
+        import requests
+        from xml.dom import minidom
+
+        def extract_urls_and_headers(url: str) -> tuple:
+            """This function extracts projects names and sitemap.xml urls for each project
+
+            Args:
+                url (str): link to the .rst file of the PyAnsys documentation landing page
+
+            Returns:
+                tuple: returns a tuple of list of project names and list of urls to projects' sitemap.xml files
+            """
+            try:
+                response = requests.get(url, timeout=10)
+            except requests.exceptions.Timeout:
+                print("Timed out while trying to get request")
+                raise
+
+            content = response.text
+
+            # Extract section headers and URLs (modify regex based on your needs)
+            project_names = [project_name.strip() for project_name in re.findall(r'\.\. grid-item-card:: ([\w\s-]+)', content)]
+            urls = re.findall(r':link: (https://[\w./-]+)', content)
+
+            # Modify URLs
+            updated_urls = [re.match(r"^(https:\/\/[^\/]+)", url).group(1) + "/sitemap.xml" for url in urls]
+
+            # Filter none existent URLS
+            valid_project_names = []
+            valid_urls = []
+            for index, url in enumerate(updated_urls):
+                if requests.get(url).status_code == 404:
+                    continue
+                else:
+                    valid_project_names.append(project_names[index])
+                    valid_urls.append(url)
+
+            return valid_project_names, valid_urls
+
+        def generate_sitemap_index(url: str) -> None:
+            """This function generates a sitemap_index.xml file indexing other sitemap.xml files
+
+            Args:
+                url (str): link to the .rst file of the PyAnsys documentation landing page
+            """
+
+            # Create the root element with namespace
+            sitemap_index = ET.Element("sitemapindex", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+
+            # Build the list of urls
+            urls = extract_urls_and_headers(url)[1]
+
+            # Create sitemap elements for each URL
+            for url in urls:
+                sitemap = ET.SubElement(sitemap_index, "sitemap")
+                loc = ET.SubElement(sitemap, "loc")
+                loc.text = url
+
+            # Format XML with indentation
+            rough_string = ET.tostring(sitemap_index, 'utf-8')
+            reparsed = minidom.parseString(rough_string)
+            pretty_xml = reparsed.toprettyxml(indent="  ")    
+
+            # Create the tree and write to XML file
+            with open("globalsitemap.xml", "w") as f:
+                f.write(pretty_xml)
+
+
+        # URL of the .rst
+        URL = "https://docs.pyansys.com/version/dev/_sources/index.rst.txt"
+        generate_sitemap_index(URL)
+        EOF
+
+    - name: Run above script
+      working-directory: /tmp
+      shell: bash
+      run: |
+        python catsitemap.py
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      #with:
+        #ref: gh-pages
+
+    #- name: Replace 'version/stable' with 'version/dev' in index.html
+      #run: |
+        # Replace landing page with the dev version
+        #cp version/dev/index.html index.html
+        #sed -i 's/href="\([^:"]*\)"/href="version\/dev\/\1"/g' index.html
+        #sed -i 's/src="\([^:"]*\)"/src="version\/dev\/\1"/g' index.html
+        # Replace "version/stable" with "version/dev" in the sitemap.xml
+        #sed -i 's/version\/stable/version\/dev/g' sitemap.xml
+
+    - name: Copy globalsitemap.xml to root of gh-pages
+      shell: bash
+      run: |
+        mv /tmp/globalsitemap.xml /home/runner/work/ci_cd/ci_cd/
+
+    - name: "Commit changes"
+      uses: EndBug/add-and-commit@v9
+      with:
+        default_author: github_actions
+        message: "testing action script, especially that file is added"
