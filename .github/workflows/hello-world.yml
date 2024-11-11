@@ -23,7 +23,7 @@
 
 #    - name: Copy randomtext.txt into some location in repo
 #      shell: bash
-#      run: 
+#      run:
 
 # name: hello-world
 # on: push
@@ -144,7 +144,7 @@
 #             # Format XML with indentation
 #             rough_string = ET.tostring(sitemap_index, 'utf-8')
 #             reparsed = minidom.parseString(rough_string)
-#             pretty_xml = reparsed.toprettyxml(indent="  ")    
+#             pretty_xml = reparsed.toprettyxml(indent="  ")
 
 #             # Create the tree and write to XML file
 #             with open("globalsitemap.xml", "w") as f:
@@ -216,7 +216,7 @@ jobs:
     - name: Checkout repository main branch
       uses: actions/checkout@v4
       with:
-        ref: main        
+        ref: main
 
     - name: Copy tools folder to /tmp and run sitemap script
       working-directory: /tmp

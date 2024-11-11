@@ -4,6 +4,7 @@ import requests
 from xml.dom import minidom
 from links import LINKS
 
+
 def download_file(url: str, dest_path: Path) -> None:
     """Given the url of a sitemap file, this function downloads the file into destination
        path (dest_path)
@@ -24,14 +25,15 @@ def download_file(url: str, dest_path: Path) -> None:
     # Send the request
     try:
         response = requests.get(url, stream=True, timeout=30)
-    except requests.exceptions.Timeout as e:
+    except requests.exceptions.Timeout:
         print(f"Timed out while trying to get download the sitemap at this url: {url}")
         raise requests.exceptions.Timeout
 
     # Write the file content to the specified location
-    with open(dest_path, mode='wb') as file:
+    with open(dest_path, mode="wb") as file:
         for chunk in response.iter_content(chunk_size=8192):
             file.write(chunk)
+
 
 def extract_urls_and_headers(links_dict: dict) -> tuple:
     """Processes the dictionary of project metadata, confirms existence of a downloadable
@@ -51,7 +53,7 @@ def extract_urls_and_headers(links_dict: dict) -> tuple:
     valid_project_names = []
     valid_urls = []
     for project_name, url in links_dict.items():
-        if url == None:
+        if url is None:
             continue
         updated_url = url.split("docs.pyansys.com")[0] + "docs.pyansys.com/sitemap.xml"
         if requests.get(url).status_code == 404:
@@ -75,8 +77,9 @@ def generate_sitemap_index(project_names: list, dest_path: Path) -> None:
     """
 
     # Create the root element with namespace
-    sitemap_index = ET.Element("sitemapindex", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
-
+    sitemap_index = ET.Element(
+        "sitemapindex", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+    )
 
     # Create sitemap elements for each URL
     for project in project_names:
@@ -88,9 +91,9 @@ def generate_sitemap_index(project_names: list, dest_path: Path) -> None:
         loc.text = modified_url
 
     # Format XML with indentation
-    rough_string = ET.tostring(sitemap_index, 'utf-8')
+    rough_string = ET.tostring(sitemap_index, "utf-8")
     reparsed = minidom.parseString(rough_string)
-    pretty_xml = reparsed.toprettyxml(indent="  ")    
+    pretty_xml = reparsed.toprettyxml(indent="  ")
 
     # Create the tree and write to XML file
     with open(dest_path, "w") as f:
@@ -100,7 +103,7 @@ def generate_sitemap_index(project_names: list, dest_path: Path) -> None:
 # Run the script
 if __name__ == "__main__":
     # Create path
-    folder_path = Path('.') / 'sitemaps'
+    folder_path = Path(".") / "sitemaps"
     folder_path.mkdir()
 
     # Get actual valid URLS and corresponding project names
@@ -111,5 +114,5 @@ if __name__ == "__main__":
     generate_sitemap_index(project_names, file_path)
 
     for index, url in enumerate(project_urls):
-        file_path = folder_path / (project_names[index] + '_sitemap.xml')
+        file_path = folder_path / (project_names[index] + "_sitemap.xml")
         download_file(url, file_path)
