@@ -35,8 +35,7 @@ def download_file(url: str, dest_path: Path) -> None:
 
     # Write the file content to the specified location
     with dest_path.open(mode="w", encoding="utf-8") as file:
-        for chunk in response.iter_content(chunk_size=CHUNK_SIZE):
-            file.write(chunk)
+        file.write(response.text)
 
 
 def extract_urls_and_headers(links_dict: dict) -> tuple:
